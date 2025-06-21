@@ -47,7 +47,7 @@ jobs:
         id: deploy
         run: |
           DEPLOYMENT_ID=$(aws deploy create-deployment \
-            --application-name simple-web-content \
+            --application-name simple-web-deploy-app \
             --deployment-group-name simple-web-deploy-group \
             --s3-location bucket=${{ secrets.AWS_BUCKET }},key=deploy.zip,bundleType=zip \
             --output text \
