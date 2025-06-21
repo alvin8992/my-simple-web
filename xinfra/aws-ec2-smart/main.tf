@@ -11,6 +11,7 @@ resource "aws_vpc" "dangtong-vpc" {
     Name = "dangtong-vpc"
   }
 }
+
 # 퍼블릭 서브넷 생성
 resource "aws_subnet" "dangtong-vpc-public-subnet" {
   for_each = {
@@ -50,7 +51,6 @@ resource "aws_route_table" "dangtong-vpc-public-rt" {
 
   tags = {
     Name = "dangtong-vpc-public-rt"
-    
   }
 }
 
@@ -65,7 +65,6 @@ resource "aws_route_table_association" "dangtong-vpc-public-rt" {
   subnet_id      = each.value
   route_table_id = aws_route_table.dangtong-vpc-public-rt.id
 }
-
 
 # 보안 그룹 설정: SSH(22) 및 HTTP(80) 트래픽 허용
 resource "aws_security_group" "nginx_sg" {
@@ -104,40 +103,40 @@ resource "tls_private_key" "example" {
 
 # AWS에서 키 페어 생성
 resource "aws_key_pair" "ec2_key" {
-  key_name   = "ec2-key" # AWS에서 사용할 키 페어 이름
+  key_name   = "ec2-key"
   public_key = tls_private_key.example.public_key_openssh
 }
 
- # EC2 인스턴스 생성
- resource "aws_instance" "nginx_instance" {
-   ami             = "ami-08b09b6acd8d62254" # Amazon Linux 2 AMI (리전별로 AMI ID가 다를 수 있음)
-   instance_type   = "t2.micro"
-   key_name        = aws_key_pair.ec2_key.key_name # AWS에서 생성한 SSH 키 적용
-   security_groups = [aws_security_group.nginx_sg.id]
-   subnet_id = aws_subnet.dangtong-vpc-public-subnet
-   # EC2 시작 시 Nginx 설치 및 실행을 위한 User Data
-   user_data = <<-EOF
-               #!/bin/bash
-               yum update -y
-               amazon-linux-extras install nginx1 -y
-               systemctl start nginx
-               systemctl enable nginx
-               EOF
-   tags = {
-     Name = "nginx-server"
-   }
- }
+# EC2 인스턴스 생성 (a 서브넷에 배치)
+resource "aws_instance" "nginx_instance" {
+  ami             = "ami-08b09b6acd8d62254" # Amazon Linux 2 AMI (리전별로 AMI ID가 다를 수 있음)
+  instance_type   = "t2.micro"
+  key_name        = aws_key_pair.ec2_key.key_name
+  security_groups = [aws_security_group.nginx_sg.id]
+  subnet_id       = aws_subnet.dangtong-vpc-public-subnet["a"].id
 
+  user_data = <<-EOF
+              #!/bin/bash
+              yum update -y
+              amazon-linux-extras install nginx1 -y
+              systemctl start nginx
+              systemctl enable nginx
+              EOF
 
- # 출력: EC2 인스턴스의 퍼블릭 IP 주소
- output "nginx_instance_public_ip" {
-   value       = aws_instance.nginx_instance.public_ip
-   description = "Public IP of the Nginx EC2 instance"
- }
+  tags = {
+    Name = "nginx-server"
+  }
+}
 
- # 출력: SSH 접속에 사용할 Private Key
- output "ssh_private_key_pem" {
-   value       = tls_private_key.example.private_key_pem
-   description = "Private key for SSH access"
-   sensitive   = true
- }
+# 출력: EC2 인스턴스의 퍼블릭 IP 주소
+output "nginx_instance_public_ip" {
+  value       = aws_instance.nginx_instance.public_ip
+  description = "Public IP of the Nginx EC2 instance"
+}
+
+# 출력: SSH 접속에 사용할 Private Key
+output "ssh_private_key_pem" {
+  value       = tls_private_key.example.private_key_pem
+  description = "Private key for SSH access"
+  sensitive   = true
+}
